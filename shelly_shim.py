@@ -20,7 +20,7 @@ def sleepTruncatedInterval(interval=1.0):
 
 
 meterURL = "http://192.168.7.7"
-promDir = "/run/shelly"
+promDir = "/run/shelly_shim"
 interval = 1.0
 
 if not os.path.exists(promDir):
