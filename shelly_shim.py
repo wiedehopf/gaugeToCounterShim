@@ -26,17 +26,23 @@ interval = 1.0
 if not os.path.exists(promDir):
     os.mkdir(promDir)
 
+counterKeys = [
+        "a_act",
+        "b_act",
+        "c_act",
+        "total_act",
+        "a_aprt",
+        "b_aprt",
+        "c_aprt",
+        "total_aprt"
+        ]
+
 # counters in Watt seconds
-energyCounters = {
-        "a_act": 0.0,
-        "b_act": 0.0,
-        "c_act": 0.0,
-        "a_aprt": 0.0,
-        "b_aprt": 0.0,
-        "c_aprt": 0.0,
-        "total_act": 0.0,
-        "total_aprt": 0.0
-        }
+energyCounters = {}
+
+for key in counterKeys:
+    energyCounters[key] = 0.0
+    energyCounters[key + "_ret"] = 0.0
 
 otherGauges = [
         "a_voltage",
@@ -51,6 +57,7 @@ otherGauges = [
         ]
 
 def generateProm(data):
+    global counterKeys
     global energyCounters
     global otherGauges
     global interval
@@ -63,16 +70,32 @@ def generateProm(data):
         out += f"# TYPE {key} gauge\n"
         out += f"{key} {value}\n"
 
-    for key, value in energyCounters.items():
+    for key in counterKeys:
+        value = energyCounters[key]
+        retValue = energyCounters[key + "_ret"]
         power = data.get(key + "_power")
         if not power:
             log(f"json missing key: {key}")
             continue
-        value += float(power) * interval
+
+        power = float(power)
+        if power > 0.0:
+            value += float(power) * interval
+        else:
+            retValue -= float(power) * interval
+
         energyCounters[key] = value
+        energyCounters[key + "_ret"] = retValue
+
         promKey = f"{key}_watt_seconds"
         out += f"# TYPE {promKey} counter\n"
         out += f"{promKey} {round(value, 1)}\n"
+
+        # for the apparent power we don't need this, it never shows negative on this meter
+        if not "aprt" in key:
+            promKey = f"{key}_ret_watt_seconds"
+            out += f"# TYPE {promKey} counter\n"
+            out += f"{promKey} {round(retValue, 1)}\n"
 
     return out
 
