@@ -12,9 +12,10 @@ def log(msg = "no log message provided"):
         msg = str(msg)
     print(msg, file=sys.stderr)
 
-def sleepTruncatedInterval(interval=1.0):
+def sleepTruncatedInterval(interval=1.0, offset=0.0):
     now = time.time()
-    sleepFor = interval - ((now + interval) % interval)
+    sleepFor = interval - ((now + interval) % interval) + offset
+    sleepFor = sleepFor % interval
     time.sleep(sleepFor)
     #log(f"slept for {sleepFor}, time now {time.time()}")
 
@@ -22,6 +23,7 @@ def sleepTruncatedInterval(interval=1.0):
 meterURL = "http://192.168.7.7"
 promDir = "/run/shelly_shim"
 interval = 1.0
+offset = 0.5
 
 if not os.path.exists(promDir):
     os.mkdir(promDir)
@@ -102,7 +104,7 @@ def generateProm(data):
 
 
 while True:
-    sleepTruncatedInterval(interval=interval)
+    sleepTruncatedInterval(interval=interval, offset=offset)
 
     try:
         with urllib.request.urlopen(f"{meterURL}/rpc/EM.GetStatus?id=0") as response:
