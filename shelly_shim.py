@@ -72,7 +72,7 @@ def generateProm(data):
         energyCounters[key] = value
         promKey = f"{key}_watt_seconds"
         out += f"# TYPE {promKey} counter\n"
-        out += f"{promKey} {value}\n"
+        out += f"{promKey} {round(value, 1)}\n"
 
     return out
 
