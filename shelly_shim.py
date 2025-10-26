@@ -60,6 +60,7 @@ def generateProm(data):
         if not value:
             log(f"json missing key: {key}")
             continue
+        out += f"# TYPE {key} gauge\n"
         out += f"{key} {value}\n"
 
     for key, value in energyCounters.items():
@@ -69,7 +70,9 @@ def generateProm(data):
             continue
         value += float(power) * interval
         energyCounters[key] = value
-        out += f"{key}_watt_seconds {value}\n"
+        promKey = f"{key}_watt_seconds"
+        out += f"# TYPE {promKey} counter\n"
+        out += f"{promKey} {value}\n"
 
     return out
 
