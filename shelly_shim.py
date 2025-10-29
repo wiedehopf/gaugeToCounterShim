@@ -80,6 +80,11 @@ def generateProm(data):
             log(f"json missing key: {key}")
             continue
 
+        # emit active power as it is as well
+        if "act" in key:
+            out += f"# TYPE {key}_power gauge\n"
+            out += f"{key}_power {power}\n"
+
         power = float(power)
         if power > 0.0:
             value += float(power) * interval
