@@ -66,7 +66,7 @@ def generateProm(data):
     out = ""
     for key in otherGauges:
         value = data.get(key)
-        if not value:
+        if value == None:
             log(f"json missing key: {key}")
             continue
         out += f"# TYPE {key} gauge\n"
@@ -76,7 +76,7 @@ def generateProm(data):
         value = energyCounters[key]
         retValue = energyCounters[key + "_ret"]
         power = data.get(key + "_power")
-        if not power:
+        if power == None:
             log(f"json missing key: {key}")
             continue
 
