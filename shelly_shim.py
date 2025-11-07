@@ -10,6 +10,7 @@ import os
 def log(msg = "no log message provided"):
     if (type(msg) != str):
         msg = str(msg)
+    msg = msg.strip()
     print(msg, file=sys.stderr)
 
 def sleepTruncatedInterval(interval=1.0, offset=0.0):
@@ -120,5 +121,8 @@ while True:
         with open(tmpPath, "w") as file:
             file.write(generateProm(data))
         os.rename(tmpPath, filePath)
-    except:
+    except urllib.error.URLError as ex:
+        lines = traceback.format_exception_only(ex)
+        log(lines[0])
+    except Exception:
         log(traceback.format_exc())
