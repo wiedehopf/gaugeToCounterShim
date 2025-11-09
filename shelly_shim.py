@@ -24,7 +24,7 @@ def sleepTruncatedInterval(interval=1.0, offset=0.0):
 meterURL = "http://192.168.7.7"
 promDir = "/run/shelly_shim"
 interval = 1.0
-offset = 0.5
+offset = 0.1
 
 if not os.path.exists(promDir):
     os.mkdir(promDir)
@@ -108,12 +108,14 @@ def generateProm(data):
     return out
 
 
-
+elapsed = 0
+lastUpdate = round(time.time(), 3)
 while True:
-    sleepTruncatedInterval(interval=interval, offset=offset)
+    if elapsed < 2:
+        sleepTruncatedInterval(interval=interval, offset=offset)
 
     try:
-        with urllib.request.urlopen(f"{meterURL}/rpc/EM.GetStatus?id=0") as response:
+        with urllib.request.urlopen(f"{meterURL}/rpc/EM.GetStatus?id=0", timeout=0.5) as response:
             data = json.load(response)
 
         filePath = f"{promDir}/hr_shim.prom"
@@ -121,6 +123,11 @@ while True:
         with open(tmpPath, "w") as file:
             file.write(generateProm(data))
         os.rename(tmpPath, filePath)
+        now = round(time.time(), 3)
+        elapsed = round(now - lastUpdate, 3)
+        if elapsed > 1.5:
+            log(f"elapsed: {elapsed} lastUpdate: {lastUpdate} now: {now}")
+        lastUpdate = now
     except urllib.error.URLError as ex:
         lines = traceback.format_exception_only(ex)
         log(lines[0])
