@@ -13,6 +13,10 @@ def log(msg = "no log message provided"):
     msg = msg.strip()
     print(msg, file=sys.stderr)
 
+def logExceptionOnly(ex):
+    lines = traceback.format_exception_only(ex)
+    log(lines[0])
+
 def sleepTruncatedInterval(interval=1.0, offset=0.0):
     now = time.time()
     sleepFor = interval - ((now + interval) % interval) + offset
@@ -129,7 +133,8 @@ while True:
             log(f"elapsed: {elapsed} lastUpdate: {lastUpdate} now: {now}")
         lastUpdate = now
     except urllib.error.URLError as ex:
-        lines = traceback.format_exception_only(ex)
-        log(lines[0])
+        logExceptionOnly(ex)
+    except TimeoutError as ex:
+        logExceptionOnly(ex)
     except Exception:
         log(traceback.format_exc())
