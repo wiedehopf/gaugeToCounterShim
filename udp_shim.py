@@ -123,7 +123,7 @@ def pruneResults(results):
             del results[ts]
 
 offset = 0.05
-attempts = 4
+attempts = 3
 cushion = 0.1
 timeout = (interval - offset - cushion) / attempts
 #log(timeout)
