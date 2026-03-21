@@ -22,7 +22,9 @@ def sleepTruncatedInterval(interval=1.0, offset=0.0):
     sleepFor = interval - ((now + interval) % interval) + offset
     sleepFor = sleepFor % interval
     time.sleep(sleepFor)
-    #log(f"slept for {sleepFor}, time now {time.time()}")
+
+    #if sleepFor > 1 or sleepFor < 0.8:
+    #    log(f"slept for {sleepFor}, time now {time.time()}")
 
 
 meterURL = "http://192.168.7.7"
@@ -115,26 +117,27 @@ def generateProm(data):
 elapsed = 0
 lastUpdate = round(time.time(), 3)
 while True:
-    if elapsed < 2:
-        sleepTruncatedInterval(interval=interval, offset=offset)
+    sleepTruncatedInterval(interval=interval, offset=offset)
 
-    try:
-        with urllib.request.urlopen(f"{meterURL}/rpc/EM.GetStatus?id=0", timeout=0.5) as response:
-            data = json.load(response)
+    for attempt in [0, 1]:
+        try:
+            with urllib.request.urlopen(f"{meterURL}/rpc/EM.GetStatus?id=0", timeout=0.4) as response:
+                data = json.load(response)
 
-        filePath = f"{promDir}/hr_shim.prom"
-        tmpPath = filePath + ".tmp"
-        with open(tmpPath, "w") as file:
-            file.write(generateProm(data))
-        os.rename(tmpPath, filePath)
-        now = round(time.time(), 3)
-        elapsed = round(now - lastUpdate, 3)
-        if elapsed > 1.5:
-            log(f"elapsed: {elapsed} lastUpdate: {lastUpdate} now: {now}")
-        lastUpdate = now
-    except urllib.error.URLError as ex:
-        logExceptionOnly(ex)
-    except TimeoutError as ex:
-        logExceptionOnly(ex)
-    except Exception:
-        log(traceback.format_exc())
+            filePath = f"{promDir}/hr_shim.prom"
+            tmpPath = filePath + ".tmp"
+            with open(tmpPath, "w") as file:
+                file.write(generateProm(data))
+            os.rename(tmpPath, filePath)
+            now = round(time.time(), 3)
+            elapsed = round(now - lastUpdate, 3)
+            if elapsed > 1.5:
+                log(f"elapsed: {elapsed} lastUpdate: {lastUpdate} thisUpdate: {now}")
+            lastUpdate = now
+            break
+        except urllib.error.URLError as ex:
+            logExceptionOnly(ex)
+        except TimeoutError as ex:
+            logExceptionOnly(ex)
+        except Exception:
+            log(traceback.format_exc())
