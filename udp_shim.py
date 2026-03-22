@@ -117,16 +117,17 @@ def generateProm(data):
     return out
 
 def pruneResults(results):
-    cutoff = time.time() - 6.5
+    cutoff = time.time() - 3.5
     for ts in list(results.keys()):
         if ts < cutoff:
             del results[ts]
 
 offset = 0.05
 attempts = 3
-cushion = 0.1
+cushion = 0.15
 timeout = (interval - offset - cushion) / attempts
-#log(timeout)
+
+log(f'using {attempts} attemps with timeout {timeout}s')
 
 lastResults = dict()
 
@@ -155,6 +156,19 @@ while True:
             if elapsed > timeout + 0.1:
                 log(f"elapsed: {elapsed}")
 
+            filePath = f"{promDir}/hr_shim.prom"
+            tmpPath = filePath + ".tmp"
+            with open(tmpPath, "w") as file:
+                file.write(generateProm(result))
+            os.rename(tmpPath, filePath)
+            now = round(time.time(), 3)
+            elapsed = round(now - lastUpdate, 3)
+
+            #if elapsed > 1.5:
+            #    log(f"elapsed: {elapsed} lastUpdate: {lastUpdate} thisUpdate: {now}")
+
+            lastUpdate = now
+
             pruneResults(lastResults)
 
             lastResults[now] = result
@@ -165,21 +179,13 @@ while True:
                 json.dump(lastResults, file, indent=2)
             os.rename(tmpPath, filePath)
 
-            filePath = f"{promDir}/hr_shim.prom"
-            tmpPath = filePath + ".tmp"
-            with open(tmpPath, "w") as file:
-                file.write(generateProm(result))
-            os.rename(tmpPath, filePath)
-            now = round(time.time(), 3)
-            elapsed = round(now - lastUpdate, 3)
-            if elapsed > 1.5:
-                log(f"elapsed: {elapsed} lastUpdate: {lastUpdate} thisUpdate: {now}")
-            lastUpdate = now
             break
 
         except TimeoutError as ex:
-            logExceptionOnly(ex)
+            now = round(time.time(), 3)
+            elapsed = round(now-lastUpdate, 3)
+            log(f"timeout for attempt {attempt} at {now}")
+            #logExceptionOnly(ex)
             if attempt == attempts - 1:
-                now = round(time.time(), 3)
-                log(f"WARNING: no data between {lastUpdate} {now}")
+                log(f"WARNING: no data for {elapsed}s ({lastUpdate} .. {now})")
 
