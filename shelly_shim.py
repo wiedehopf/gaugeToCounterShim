@@ -30,7 +30,6 @@ def sleepTruncatedInterval(interval=1.0, offset=0.0):
 meterURL = "http://192.168.7.7"
 promDir = "/run/shelly_shim"
 interval = 1.0
-offset = 0.1
 
 if not os.path.exists(promDir):
     os.mkdir(promDir)
@@ -113,15 +112,23 @@ def generateProm(data):
 
     return out
 
+offset = 0.05
+attempts = 3
+cushion = 0.15
+timeout = (interval - offset - cushion) / attempts
+
+log(f'using {attempts} attemps with timeout {timeout}s')
 
 elapsed = 0
 lastUpdate = round(time.time(), 3)
 while True:
     sleepTruncatedInterval(interval=interval, offset=offset)
 
-    for attempt in [0, 1]:
+    startOfInterval = round(time.time(), 3)
+
+    for attempt in range(attempts):
         try:
-            with urllib.request.urlopen(f"{meterURL}/rpc/EM.GetStatus?id=0", timeout=0.4) as response:
+            with urllib.request.urlopen(f"{meterURL}/rpc/EM.GetStatus?id=0", timeout=timeout) as response:
                 data = json.load(response)
 
             filePath = f"{promDir}/hr_shim.prom"
@@ -130,14 +137,20 @@ while True:
                 file.write(generateProm(data))
             os.rename(tmpPath, filePath)
             now = round(time.time(), 3)
-            elapsed = round(now - lastUpdate, 3)
-            if elapsed > 1.5:
-                log(f"elapsed: {elapsed} lastUpdate: {lastUpdate} thisUpdate: {now}")
+            #elapsed = round(now - lastUpdate, 3)
             lastUpdate = now
             break
         except urllib.error.URLError as ex:
-            logExceptionOnly(ex)
+            if "timed out" in traceback.format_exception_only(ex):
+                now = round(time.time(), 3)
+                log(f"timeout for attempt {attempt} at {now}")
+            else:
+                logExceptionOnly(ex)
         except TimeoutError as ex:
-            logExceptionOnly(ex)
+            now = round(time.time(), 3)
+            log(f"timeout for attempt {attempt} at {now}")
         except Exception:
             log(traceback.format_exc())
+
+        if attempt == attempts - 1:
+            log(f"WARNING: no data for interval {startOfInterval})")
