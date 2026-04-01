@@ -112,12 +112,20 @@ def generateProm(data):
 
     return out
 
+def pruneResults(results):
+    cutoff = time.time() - 4.5
+    for ts in list(results.keys()):
+        if ts < cutoff:
+            del results[ts]
+
 offset = 0.05
 attempts = 3
 cushion = 0.15
 timeout = (interval - offset - cushion) / attempts
 
 log(f'using {attempts} attemps with timeout {timeout}s')
+
+lastResults = dict()
 
 elapsed = 0
 lastUpdate = round(time.time(), 3)
@@ -139,12 +147,18 @@ while True:
             now = round(time.time(), 3)
             #elapsed = round(now - lastUpdate, 3)
             lastUpdate = now
+
+            pruneResults(lastResults)
+
+            lastResults[now] = data
+
             break
         except urllib.error.URLError as ex:
-            if "timed out" in traceback.format_exception_only(ex):
+            if "timed out" in str(traceback.format_exception_only(ex)):
                 now = round(time.time(), 3)
                 log(f"timeout for attempt {attempt} at {now}")
             else:
+                log(traceback.format_exception_only(ex))
                 logExceptionOnly(ex)
         except TimeoutError as ex:
             now = round(time.time(), 3)
