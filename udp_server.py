@@ -26,29 +26,54 @@ def logExceptionOnly(ex):
     log(lines[0])
 
 port = 1010
+promDir = "/run/shelly_shim"
 
-meterIp = "192.168.7.7"
-meterPort = 1010
+def getAnswer():
+    filePath = f"{promDir}/lastResults.json"
+    with open(filePath, 'r') as file:
+        lastResults = json.load(file)
 
-def modifyAnswer(txt):
-    resp = json.loads(txt)
+
+    now = time.time()
+    lastThree = {k: v for k, v in lastResults.items() if float(k) > now - 3}
+
+    if len(lastThree) < 1:
+        log('no answer: no data for last 3 seconds')
+        return None
+
+    latestKey = sorted(lastThree.keys(), reverse=True)[0]
+    #log(now - float(latestKey))
+    latest = lastThree.get(latestKey)
+
+    mod = json.loads(json.dumps(latest))
+
     powerKeys = [
             "a_act_power",
             "b_act_power",
             "c_act_power",
             ]
 
-    res = resp["result"]
-
     total_power = 0
     for key in powerKeys:
         avg = 0
-        power = round(res[key] - 5)
-        res[key] = power
-        total_power += power
+        vals = []
+        for stuff in lastThree.values():
+            val = stuff.get(key)
+            vals.append(val)
+            avg += val
 
-    res["total_act_power"] = total_power
+        avg = round(avg / len(vals))
 
+        power = round(min(vals)) - 2
+        total_power +=  power
+        mod[key] = power
+
+    mod["total_act_power"] = total_power
+
+    resp = dict()
+    resp["id"] = 0
+    resp["src"] = "shellypro3em-bfefd9c87ec9"
+    resp["result"] = mod
     return json.dumps(resp)
 
 
@@ -63,9 +88,6 @@ sock.bind((bind, port))
 
 log(f"UDP server listening on {bind}:{port}")
 
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client.settimeout(0.3)
-
 while True:
     data, addr = sock.recvfrom(1024)
 
@@ -76,15 +98,6 @@ while True:
         log(traceback.format_exc())
         continue
 
-    msg = b'{"id":0,"method":"EM.GetStatus","params":{"id":0}}\n'
-    client.sendto(msg, (meterIp, meterPort))
-
-    try:
-        raw, server = client.recvfrom(1024)
-    except TimeoutError as ex:
-        continue
-
-    response = modifyAnswer(raw)
-
+    response = getAnswer()
     if response:
         sock.sendto(response.encode(), addr)
