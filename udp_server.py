@@ -19,7 +19,7 @@ def log(msg = "no log message provided"):
     if (type(msg) != str):
         msg = str(msg)
     msg = msg.strip()
-    print(msg, file=sys.stderr)
+    print(msg, file=sys.stderr, flush=True)
 
 def logExceptionOnly(ex):
     lines = traceback.format_exception_only(ex)
@@ -35,10 +35,10 @@ def getAnswer():
 
 
     now = time.time()
-    lastThree = {k: v for k, v in lastResults.items() if float(k) > now - 3}
+    lastThree = {k: v for k, v in lastResults.items() if float(k) > now - 4}
 
     if len(lastThree) < 1:
-        log('no answer: no data for last 3 seconds')
+        log('no answer: no data for last 4 seconds')
         return None
 
     latestKey = sorted(lastThree.keys(), reverse=True)[0]
@@ -53,22 +53,30 @@ def getAnswer():
             "c_act_power",
             ]
 
-    total_power = 0
+    avgPower = {}
+    minPower = {}
+    maxPower = {}
+
     for key in powerKeys:
-        avg = 0
-        vals = []
-        for stuff in lastThree.values():
-            val = stuff.get(key)
-            vals.append(val)
-            avg += val
+        vals = { stuff.get(key) for stuff in lastThree.values() }
 
-        avg = round(avg / len(vals))
+        minPower[key] = round(min(vals))
+        maxPower[key] = round(max(vals))
+        avgPower[key] = round(sum(vals) / len(vals))
 
-        power = round(min(vals)) - 2
-        total_power +=  power
-        mod[key] = power
+    totalMinPower = sum(minPower.values())
+    totalMaxPower = sum(maxPower.values())
+    totalAvgPower = sum(avgPower.values())
 
-    mod["total_act_power"] = total_power
+    for key in powerKeys:
+        if totalMaxPower > 1200:
+            mod[key] = maxPower[key]
+        else:
+            mod[key] = minPower[key]
+
+    mod["total_act_power"] = sum({ mod[k] for k in powerKeys })
+
+    log(f"Responding with total_act_power: {mod['total_act_power']}")
 
     resp = dict()
     resp["id"] = 0
@@ -93,7 +101,7 @@ while True:
 
     try:
         message = data.decode()
-        log(f"Msg from {addr}: {message}")
+        #log(f"Msg from {addr}: {message}")
     except Exception as ex:	
         log(traceback.format_exc())
         continue

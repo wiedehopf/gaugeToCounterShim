@@ -113,15 +113,16 @@ def generateProm(data):
     return out
 
 def pruneResults(results):
-    cutoff = time.time() - 4.5
+    cutoff = time.time() - 5.5
     for ts in list(results.keys()):
         if ts < cutoff:
             del results[ts]
 
 offset = 0.05
-attempts = 3
+attempts = 2
 cushion = 0.15
 timeout = (interval - offset - cushion) / attempts
+timeout = round(timeout, 3)
 
 log(f'using {attempts} attemps with timeout {timeout}s')
 
@@ -152,19 +153,27 @@ while True:
 
             lastResults[now] = data
 
+            filePath = f"{promDir}/lastResults.json"
+            tmpPath = filePath + ".tmp"
+            with open(tmpPath, "w") as file:
+                json.dump(lastResults, file, indent=2)
+            os.rename(tmpPath, filePath)
+
             break
         except urllib.error.URLError as ex:
             if "timed out" in str(traceback.format_exception_only(ex)):
                 now = round(time.time(), 3)
-                log(f"timeout for attempt {attempt} at {now}")
+                if attempt != 0:
+                    log(f"timeout for attempt {attempt} at {now}")
             else:
                 log(traceback.format_exception_only(ex))
                 logExceptionOnly(ex)
         except TimeoutError as ex:
             now = round(time.time(), 3)
-            log(f"timeout for attempt {attempt} at {now}")
+            if attempt != 0:
+                log(f"timeout for attempt {attempt} at {now}")
         except Exception:
             log(traceback.format_exc())
 
         if attempt == attempts - 1:
-            log(f"WARNING: no data for interval {startOfInterval})")
+            log(f"WARNING: no data for interval {startOfInterval}")
