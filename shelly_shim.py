@@ -19,8 +19,7 @@ def logExceptionOnly(ex):
 
 def sleepTruncatedInterval(interval=1.0, offset=0.0):
     now = time.time()
-    sleepFor = interval - ((now + interval) % interval) + offset
-    sleepFor = sleepFor % interval
+    sleepFor = interval - ((now - offset) % interval)
     time.sleep(sleepFor)
 
     #if sleepFor > 1 or sleepFor < 0.8:
