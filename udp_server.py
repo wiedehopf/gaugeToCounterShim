@@ -35,46 +35,58 @@ def getAnswer():
 
 
     now = time.time()
-    lastThree = {k: v for k, v in lastResults.items() if float(k) > now - 4}
-
-    if len(lastThree) < 1:
-        log('no answer: no data for last 4 seconds')
+    lastFiveSeconds = { k: v for k, v in lastResults.items() if float(k) > now - 5 }
+    if len(lastFiveSeconds) < 1:
+        log('no answer: no data for last 5 seconds')
         return None
 
-    latestKey = sorted(lastThree.keys(), reverse=True)[0]
-    #log(now - float(latestKey))
-    latest = lastThree.get(latestKey)
+    resultsOrdered = [ lastResults[k] for k in sorted(lastResults.keys()) ]
+    lastTwo = resultsOrdered[-2:]
+    lastThree = resultsOrdered[-3:]
+    lastFour = resultsOrdered[-4:]
+    lastFive = resultsOrdered[-5:]
+
+    latest = resultsOrdered[-1]
 
     mod = json.loads(json.dumps(latest))
 
-    powerKeys = [
+    phaseKeys = [
             "a_act_power",
             "b_act_power",
             "c_act_power",
             ]
+
+    powerKeys = phaseKeys + [ "total_act_power" ]
 
     avgPower = {}
     minPower = {}
     maxPower = {}
 
     for key in powerKeys:
-        vals = { stuff.get(key) for stuff in lastThree.values() }
+        vals = [ stuff.get(key) for stuff in lastFour ]
 
         minPower[key] = round(min(vals))
         maxPower[key] = round(max(vals))
         avgPower[key] = round(sum(vals) / len(vals))
 
-    totalMinPower = sum(minPower.values())
-    totalMaxPower = sum(maxPower.values())
-    totalAvgPower = sum(avgPower.values())
+    totalMinPower = minPower["total_act_power"]
+    totalMaxPower = maxPower["total_act_power"]
+    totalAvgPower = avgPower["total_act_power"]
+    totalLatest = latest["total_act_power"]
+
+    if totalMaxPower > 1500:
+        total = totalLatest
+    else:
+        total = totalMinPower
+
+    mod["a_act_power"] = 0
+    mod["b_act_power"] = total
+    mod["c_act_power"] = 0
+
+    mod["total_act_power"] = sum([ mod[k] for k in phaseKeys ])
 
     for key in powerKeys:
-        if totalMaxPower > 1200:
-            mod[key] = maxPower[key]
-        else:
-            mod[key] = minPower[key]
-
-    mod["total_act_power"] = sum({ mod[k] for k in powerKeys })
+        mod[key] = round(mod[key])
 
     log(f"Responding with total_act_power: {mod['total_act_power']}")
 

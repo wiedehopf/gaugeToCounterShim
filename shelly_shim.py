@@ -113,7 +113,7 @@ def generateProm(data):
     return out
 
 def pruneResults(results):
-    cutoff = time.time() - 5.5
+    cutoff = time.time() - 6.5
     for ts in list(results.keys()):
         if ts < cutoff:
             del results[ts]
