@@ -3,9 +3,9 @@
 # don't use this unless you really understand what it does
 # it's a messy hack to adjust the behaviour of a Marstek inverter which gets the power to compensate
 # for via shelly RPC on UDP
-
-
-# bootstrap port forward (starts out as multicast): ssh p1 "socat -d -d udp4-listen:1010,reuseaddr udp:192.168.2.16:1010"
+# shelly UDP RPC seems to be buggy plus we are already getting the data every second via http
+# so we just use the data from the shelly_shim and mess with it to adjust for this very particular
+# situation
 
 import json
 import traceback
@@ -62,8 +62,13 @@ def getAnswer():
     minPower = {}
     maxPower = {}
 
+    reference = lastFour
+    if latest["a_act_power"] > 0:
+        #reference = [ latest ]
+        reference = lastTwo
+
     for key in powerKeys:
-        vals = [ stuff.get(key) for stuff in lastFour ]
+        vals = [ stuff.get(key) for stuff in reference ]
 
         minPower[key] = round(min(vals))
         maxPower[key] = round(max(vals))
