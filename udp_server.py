@@ -79,7 +79,7 @@ def getAnswer():
     totalAvgPower = avgPower["total_act_power"]
     totalLatest = latest["total_act_power"]
 
-    if totalMaxPower > 1500:
+    if totalMaxPower > 1700:
         total = totalLatest
     else:
         total = totalMinPower

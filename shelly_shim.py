@@ -162,14 +162,14 @@ while True:
         except urllib.error.URLError as ex:
             if "timed out" in str(traceback.format_exception_only(ex)):
                 now = round(time.time(), 3)
-                if attempt != 0:
+                if False and attempt != 0:
                     log(f"timeout for attempt {attempt} at {now}")
             else:
                 log(traceback.format_exception_only(ex))
                 logExceptionOnly(ex)
         except TimeoutError as ex:
             now = round(time.time(), 3)
-            if attempt != 0:
+            if False and attempt != 0:
                 log(f"timeout for attempt {attempt} at {now}")
         except Exception:
             log(traceback.format_exc())
