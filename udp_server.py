@@ -62,10 +62,18 @@ def getAnswer():
     minPower = {}
     maxPower = {}
 
-    reference = lastFour
-    if latest["a_act_power"] > 0:
+    for key in powerKeys:
+        vals = [ stuff.get(key) for stuff in lastFive ]
+
+        minPower[key] = round(min(vals))
+        maxPower[key] = round(max(vals))
+        avgPower[key] = round(sum(vals) / len(vals))
+
+    if latest["a_act_power"] > -10 or maxPower["total_act_power"] > 1400:
         #reference = [ latest ]
         reference = lastTwo
+    else:
+        reference = lastFour
 
     for key in powerKeys:
         vals = [ stuff.get(key) for stuff in reference ]
@@ -74,15 +82,32 @@ def getAnswer():
         maxPower[key] = round(max(vals))
         avgPower[key] = round(sum(vals) / len(vals))
 
-    totalMinPower = minPower["total_act_power"]
-    totalMaxPower = maxPower["total_act_power"]
-    totalAvgPower = avgPower["total_act_power"]
-    totalLatest = latest["total_act_power"]
-
-    if totalMaxPower > 1700:
-        total = totalLatest
+    if False and latest["total_act_power"] < 800:
+        total = latest["total_act_power"]
     else:
-        total = totalMinPower
+        total = minPower["total_act_power"]
+
+    # very slightly correct for marstek 10 W bias
+    total += 5
+
+    dampen = (abs(total) < 200)
+
+    # dampen below threshold
+    if dampen:
+        if abs(total) > 10:
+            # reduce absolute value by 10
+            total -= 10 * (total / abs(total))
+        total *= 0.7
+
+    # improve inverter increase response above threshold
+    if not dampen:
+        if total > 0:
+            total *= 1.05
+        if total < 0:
+            total *= 1.0
+
+    if total < -800:
+        total = -800
 
     mod["a_act_power"] = 0
     mod["b_act_power"] = total
