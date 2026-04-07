@@ -14,6 +14,8 @@ import time
 import os
 import threading
 import socket
+import datetime
+import zoneinfo
 
 def log(msg = "no log message provided"):
     if (type(msg) != str):
@@ -27,6 +29,24 @@ def logExceptionOnly(ex):
 
 port = 1010
 promDir = "/run/shelly_shim"
+
+
+def getBTarget():
+    tz = zoneinfo.ZoneInfo("Europe/Busingen")
+    local = datetime.datetime.now(tz).time()
+    #log(local)
+    # large number == no target
+    # heat up marstek
+    if local < datetime.time(9, 0):
+        return -60
+    if local < datetime.time(9, 30):
+        return -100
+    if local < datetime.time(10, 0):
+        return -200
+    if local < datetime.time(19, 30):
+        return 5000
+    return -60
+
 
 def getAnswer():
     filePath = f"{promDir}/lastResults.json"
@@ -87,8 +107,10 @@ def getAnswer():
     else:
         total = minPower["total_act_power"]
 
-    # very slightly correct for marstek 10 W bias
-    total += 5
+
+    bTargetDiff = minPower["b_act_power"] - getBTarget()
+    if bTargetDiff > total:
+        total = bTargetDiff
 
     dampen = (abs(total) < 200)
 
