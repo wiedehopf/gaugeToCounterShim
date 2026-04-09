@@ -37,18 +37,21 @@ def getBTarget():
     #log(local)
     # large number == no target
     # heat up marstek
-    if local < datetime.time(9, 0):
+    if local < datetime.time(4, 0):
+        return 5000
+    if local < datetime.time(8, 30):
         return -60
-    if local < datetime.time(9, 30):
+    if local < datetime.time(11, 0):
         return -100
-    if local < datetime.time(10, 0):
-        return -200
     if local < datetime.time(19, 30):
         return 5000
-    return -60
+    return -120
 
+
+integralAdjust = 0
 
 def getAnswer():
+    global integralAdjust
     filePath = f"{promDir}/lastResults.json"
     with open(filePath, 'r') as file:
         lastResults = json.load(file)
@@ -93,7 +96,7 @@ def getAnswer():
         #reference = [ latest ]
         reference = lastTwo
     else:
-        reference = lastFour
+        reference = lastFive
 
     for key in powerKeys:
         vals = [ stuff.get(key) for stuff in reference ]
@@ -112,25 +115,47 @@ def getAnswer():
     if bTargetDiff > total:
         total = bTargetDiff
 
-    dampen = (abs(total) < 200)
+    undampedTotal = total
 
-    # dampen below threshold
-    if dampen:
-        if abs(total) > 10:
-            # reduce absolute value by 10
-            total -= 10 * (total / abs(total))
-        total *= 0.7
+    # bias towards supplying less power when providing a lot of it
+    if minPower["b_act_power"] < -400:
+        total -= 25
+    elif minPower["b_act_power"] < -150:
+        total -= 15
+    else:
+        total -= 5
 
-    # improve inverter increase response above threshold
-    if not dampen:
-        if total > 0:
-            total *= 1.05
-        if total < 0:
-            total *= 1.0
+    if abs(total) > 4:
+        integralAdjust += total / abs(total)
 
     if total < -800:
         total = -800
 
+    if abs(total) < 100:
+        #dampen
+        if abs(total) > 9:
+            # reduce absolute value by 10
+            total -= 5 * (total / abs(total))
+        total *= 0.8
+    else:
+        if total > 0:
+            # dampen as well but not as much
+            total *= 0.7
+        if total < 0:
+            # dampen power reduction massively for large power to avoid coupled oscillation with
+            # other inverter
+            total *= 0.3
+
+    if abs(total) < 11:
+        if abs(integralAdjust) > 5:
+            total = 11 * integralAdjust / abs(integralAdjust)
+            integralAdjust = 0
+        else:
+            total = 0
+
+
+    mod = dict()
+    mod["id"] = 0
     mod["a_act_power"] = 0
     mod["b_act_power"] = total
     mod["c_act_power"] = 0
@@ -140,12 +165,13 @@ def getAnswer():
     for key in powerKeys:
         mod[key] = round(mod[key])
 
-    log(f"Responding with total_act_power: {mod['total_act_power']}")
+    log(f"Responding with total_act_power: {mod['total_act_power']} undampedTotal: {undampedTotal}")
 
     resp = dict()
     resp["id"] = 0
-    resp["src"] = "shellypro3em-bfefd9c87ec9"
+    resp["src"] = "shellypro3em-c0ffee"
     resp["result"] = mod
+    #log(resp)
     return json.dumps(resp)
 
 
