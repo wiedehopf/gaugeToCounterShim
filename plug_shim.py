@@ -166,7 +166,7 @@ for plug in plugs:
 
 # write prom file in main thread after end of collection period
 while True:
-    sleepTruncatedInterval(interval=interval, offset=0.95)
+    sleepTruncatedInterval(interval=interval, offset=0.89)
     promData = ""
     jsonData = {}
     for plug in plugs:

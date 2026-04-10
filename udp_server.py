@@ -30,6 +30,8 @@ def logExceptionOnly(ex):
 port = 1010
 promDir = "/run/shelly_shim"
 
+def transfer():
+    return 0
 
 def getTarget():
     tz = zoneinfo.ZoneInfo("Europe/Busingen")
@@ -38,14 +40,16 @@ def getTarget():
     if local < datetime.time(5, 0):
         return 0
     if local < datetime.time(8, 30):
-        return -400
+        return -200
     if local < datetime.time(9, 0):
         return -100
     if local < datetime.time(11, 0):
-        return -200
+        return -100
     if local < datetime.time(19, 30):
         return 0
-    return -120
+    if local < datetime.time(22, 30):
+        return -400
+    return 0
 
 
 integralAdjust = 0
@@ -108,11 +112,13 @@ def getAnswer():
         maxPower[key] = round(max(vals))
         avgPower[key] = round(sum(vals) / len(vals))
 
-    if latest["a_act_power"] > -10 or maxPower["total_act_power"] > 1400:
+    if maxPower["total_act_power"] > 1400:
         #reference = [ latest ]
         reference = lastTwo
     else:
         reference = lastFive
+
+    #reference = lastTwo
 
     for key in powerKeys:
         vals = [ stuff.get(key) for stuff in reference ]
@@ -127,29 +133,28 @@ def getAnswer():
         total = minPower["total_act_power"]
 
 
-    if marstekPower is not None and ecoflowPower is not None:
+    if not transfer() and marstekPower is not None and ecoflowPower is not None:
         targetDiff = marstekPower - getTarget()
-        if total - targetDiff < ecoflowPower:
-            targetDiff = total - ecoflowPower
-        if ecoflowPower > 0:
-            total = -ecoflowPower
-            #log(f'ecoflow > 0')
+        if targetDiff > total:
+            #log(f'targetDiff: {marstekPower} - {getTarget()} = {targetDiff}')
+            pass
+        ecoAdjusted = ecoflowPower - 15
+        if total - targetDiff < ecoAdjusted:
+            targetDiff = total - ecoAdjusted
+            #log(f'targetDiff restricted by ecoflowPower, setting targetDiff to {total} - {ecoflowPower} = {targetDiff}')
+        if ecoAdjusted > 0:
+            total = -ecoAdjusted
+            #log(f'ecoflow too much')
         elif targetDiff > total:
-            total = targetDiff
-            #log(f'targetDiff > total')
+            #log(f'targetDiff > total: {targetDiff} > {total}')
+            total = min(200, targetDiff)
 
+    # push power into the grid so the other battery picks it up
+    total += transfer()
 
     undampedTotal = round(total)
 
-    # bias towards supplying less power when providing a lot of it
-    if minPower["b_act_power"] < -400:
-        total -= 25
-    elif minPower["b_act_power"] < -150:
-        total -= 15
-    else:
-        total -= 5
-
-    if abs(total) > 4:
+    if abs(total) > 8:
         integralAdjust += total / abs(total)
 
     if total < -800:
@@ -157,10 +162,7 @@ def getAnswer():
 
     if abs(total) < 100:
         #dampen
-        if abs(total) > 9:
-            # reduce absolute value by 10
-            total -= 5 * (total / abs(total))
-        total *= 0.8
+        total *= 0.25
     else:
         if total > 0:
             # dampen as well but not as much
@@ -168,14 +170,16 @@ def getAnswer():
         if total < 0:
             # dampen power reduction massively for large power to avoid coupled oscillation with
             # other inverter
-            total *= 0.5
+            total *= 0.25
 
     if abs(total) < 11:
-        if abs(integralAdjust) > 5:
+        if abs(integralAdjust) > 8:
             total = 11 * integralAdjust / abs(integralAdjust)
             integralAdjust = 0
         else:
             total = 0
+    else:
+        integralAdjust = 0
 
     #total = 800
 
