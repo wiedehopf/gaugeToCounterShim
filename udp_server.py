@@ -31,20 +31,20 @@ port = 1010
 promDir = "/run/shelly_shim"
 
 
-def getBTarget():
+def getTarget():
     tz = zoneinfo.ZoneInfo("Europe/Busingen")
     local = datetime.datetime.now(tz).time()
     #log(local)
-    # large number == no target
-    # heat up marstek
-    if local < datetime.time(4, 0):
-        return 5000
+    if local < datetime.time(5, 0):
+        return 0
     if local < datetime.time(8, 30):
-        return -60
-    if local < datetime.time(11, 0):
+        return -400
+    if local < datetime.time(9, 0):
         return -100
+    if local < datetime.time(11, 0):
+        return -200
     if local < datetime.time(19, 30):
-        return 5000
+        return 0
     return -120
 
 
@@ -56,6 +56,22 @@ def getAnswer():
     with open(filePath, 'r') as file:
         lastResults = json.load(file)
 
+
+    try:
+        filePath = f"{promDir}/plugs.json"
+        with open(filePath, 'r') as file:
+            plugs = json.load(file)
+    except:
+        plugs = {}
+        pass
+
+    plugEcoflow = plugs.get("ecoflow_stream_ultra_x_1")
+    if plugEcoflow:
+        ecoflowPower = plugEcoflow.get("apower")
+
+    plugMarstek = plugs.get("marstek_jupiter_c_1")
+    if plugMarstek:
+        marstekPower = plugMarstek.get("apower")
 
     now = time.time()
     lastFiveSeconds = { k: v for k, v in lastResults.items() if float(k) > now - 5 }
@@ -111,11 +127,19 @@ def getAnswer():
         total = minPower["total_act_power"]
 
 
-    bTargetDiff = minPower["b_act_power"] - getBTarget()
-    if bTargetDiff > total:
-        total = bTargetDiff
+    if marstekPower is not None and ecoflowPower is not None:
+        targetDiff = marstekPower - getTarget()
+        if total - targetDiff < ecoflowPower:
+            targetDiff = total - ecoflowPower
+        if ecoflowPower > 0:
+            total = -ecoflowPower
+            #log(f'ecoflow > 0')
+        elif targetDiff > total:
+            total = targetDiff
+            #log(f'targetDiff > total')
 
-    undampedTotal = total
+
+    undampedTotal = round(total)
 
     # bias towards supplying less power when providing a lot of it
     if minPower["b_act_power"] < -400:
@@ -140,11 +164,11 @@ def getAnswer():
     else:
         if total > 0:
             # dampen as well but not as much
-            total *= 0.7
+            total *= 0.5
         if total < 0:
             # dampen power reduction massively for large power to avoid coupled oscillation with
             # other inverter
-            total *= 0.3
+            total *= 0.5
 
     if abs(total) < 11:
         if abs(integralAdjust) > 5:
@@ -153,6 +177,7 @@ def getAnswer():
         else:
             total = 0
 
+    #total = 800
 
     mod = dict()
     mod["id"] = 0

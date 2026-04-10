@@ -149,7 +149,7 @@ def handlePlug(plug=None, interval=1.0):
                 log(traceback.format_exc())
 
             if attempt == attempts - 1:
-                log(f"WARNING: no data for interval {startOfInterval}")
+                log(f"WARNING: no data for interval {startOfInterval} for plug {plug["name"]}")
 
 
 for plug in plugs:
