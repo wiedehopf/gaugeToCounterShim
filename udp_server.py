@@ -30,6 +30,12 @@ def logExceptionOnly(ex):
 port = 1010
 promDir = "/run/shelly_shim"
 
+def sign(num):
+    if num >= 0:
+        return 1
+    else:
+        return -1
+
 def transfer():
     return 0
 
@@ -38,23 +44,25 @@ def getTarget():
     local = datetime.datetime.now(tz).time()
     #log(local)
     if local < datetime.time(5, 0):
-        return 0
+        return -0
     if local < datetime.time(8, 30):
-        return -200
+        return -900
     if local < datetime.time(9, 0):
-        return -100
+        return -0
     if local < datetime.time(11, 0):
-        return -100
+        return -0
     if local < datetime.time(19, 30):
-        return 0
+        return -0
     if local < datetime.time(22, 30):
         return -400
-    return 0
+    return -0
 
 
 integralAdjust = 0
+replyCounter = 0
 
 def getAnswer():
+    global replyCounter
     global integralAdjust
     filePath = f"{promDir}/lastResults.json"
     with open(filePath, 'r') as file:
@@ -138,7 +146,7 @@ def getAnswer():
         if targetDiff > total:
             #log(f'targetDiff: {marstekPower} - {getTarget()} = {targetDiff}')
             pass
-        ecoAdjusted = ecoflowPower - 15
+        ecoAdjusted = ecoflowPower - 12
         if total - targetDiff < ecoAdjusted:
             targetDiff = total - ecoAdjusted
             #log(f'targetDiff restricted by ecoflowPower, setting targetDiff to {total} - {ecoflowPower} = {targetDiff}')
@@ -148,40 +156,58 @@ def getAnswer():
         elif targetDiff > total:
             #log(f'targetDiff > total: {targetDiff} > {total}')
             total = min(200, targetDiff)
+        elif ecoAdjusted > -800 and targetDiff < 0:
+            # slightly bleed down power if ecoflow still has more power to give
+            total -= 25
 
     # push power into the grid so the other battery picks it up
     total += transfer()
 
     undampedTotal = round(total)
 
-    if abs(total) > 8:
-        integralAdjust += total / abs(total)
+    if abs(total) > 5:
+        integralAdjust += sign(total)
 
     if total < -800:
         total = -800
 
     if abs(total) < 100:
         #dampen
-        total *= 0.25
+        total *= 0.5
     else:
         if total > 0:
             # dampen as well but not as much
-            total *= 0.5
+            total *= 1
         if total < 0:
             # dampen power reduction massively for large power to avoid coupled oscillation with
             # other inverter
-            total *= 0.25
+            total *= 0.5
 
-    if abs(total) < 11:
-        if abs(integralAdjust) > 8:
-            total = 11 * integralAdjust / abs(integralAdjust)
+    # minimum the inverter will react to
+    minStep = 11
+
+    if abs(total) < minStep:
+        if abs(integralAdjust) > 6:
+            total = minStep * sign(integralAdjust)
             integralAdjust = 0
         else:
             total = 0
     else:
         integralAdjust = 0
+        # global dampening
+        if abs(total * 0.5) < minStep:
+            # values that would result in less than minStep are damped pulsing on every 3rd query
+            if replyCounter % 3 == 0:
+                total = 0
+            else:
+                total = minStep * sign(total)
+        else:
+            total *= 0.5
 
-    #total = 800
+    total = round(total)
+    undampedTotal = round(undampedTotal)
+
+    log(f"Responding with total: {total:4} undampedTotal: {undampedTotal:4}")
 
     mod = dict()
     mod["id"] = 0
@@ -194,13 +220,12 @@ def getAnswer():
     for key in powerKeys:
         mod[key] = round(mod[key])
 
-    log(f"Responding with total_act_power: {mod['total_act_power']} undampedTotal: {undampedTotal}")
-
     resp = dict()
     resp["id"] = 0
     resp["src"] = "shellypro3em-c0ffee"
     resp["result"] = mod
     #log(resp)
+    replyCounter += 1
     return json.dumps(resp)
 
 
