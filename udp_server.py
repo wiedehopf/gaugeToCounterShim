@@ -46,7 +46,7 @@ def getTarget():
     if local < datetime.time(5, 0):
         return -0
     if local < datetime.time(8, 30):
-        return -900
+        return -0
     if local < datetime.time(9, 0):
         return -0
     if local < datetime.time(11, 0):
@@ -126,7 +126,8 @@ def getAnswer():
     else:
         reference = lastFive
 
-    #reference = lastTwo
+    # with as much damping and all the other stuff, use only more recent data now
+    reference = lastTwo
 
     for key in powerKeys:
         vals = [ stuff.get(key) for stuff in reference ]
@@ -141,24 +142,29 @@ def getAnswer():
         total = minPower["total_act_power"]
 
 
+    target = " "
+
     if not transfer() and marstekPower is not None and ecoflowPower is not None:
         targetDiff = marstekPower - getTarget()
         if targetDiff > total:
             #log(f'targetDiff: {marstekPower} - {getTarget()} = {targetDiff}')
             pass
-        ecoAdjusted = ecoflowPower - 12
+        ecoAdjusted = ecoflowPower - 5
         if total - targetDiff < ecoAdjusted:
             targetDiff = total - ecoAdjusted
             #log(f'targetDiff restricted by ecoflowPower, setting targetDiff to {total} - {ecoflowPower} = {targetDiff}')
         if ecoAdjusted > 0:
             total = -ecoAdjusted
             #log(f'ecoflow too much')
+            target = "--"
         elif targetDiff > total:
             #log(f'targetDiff > total: {targetDiff} > {total}')
             total = min(200, targetDiff)
-        elif ecoAdjusted > -800 and targetDiff < 0:
+            target = "+"
+        elif ecoAdjusted > -800 and targetDiff < 0 and total > -25:
             # slightly bleed down power if ecoflow still has more power to give
             total -= 25
+            target = "-"
 
     # push power into the grid so the other battery picks it up
     total += transfer()
@@ -172,16 +178,13 @@ def getAnswer():
         total = -800
 
     if abs(total) < 100:
-        #dampen
+        # extra dampening for low powers
         total *= 0.5
     else:
         if total > 0:
-            # dampen as well but not as much
             total *= 1
         if total < 0:
-            # dampen power reduction massively for large power to avoid coupled oscillation with
-            # other inverter
-            total *= 0.5
+            total *= 1
 
     # minimum the inverter will react to
     minStep = 11
@@ -207,7 +210,7 @@ def getAnswer():
     total = round(total)
     undampedTotal = round(undampedTotal)
 
-    log(f"Responding with total: {total:4} undampedTotal: {undampedTotal:4}")
+    log(f"Responding with total: {total:4} undampedTotal: {undampedTotal:4} (target: {target})")
 
     mod = dict()
     mod["id"] = 0
