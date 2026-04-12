@@ -144,24 +144,31 @@ def getAnswer():
 
     target = " "
 
+    targetDiff = 0
+    preTargetTotal = total
     if not transfer() and marstekPower is not None and ecoflowPower is not None:
         targetDiff = marstekPower - getTarget()
-        if targetDiff > total:
-            #log(f'targetDiff: {marstekPower} - {getTarget()} = {targetDiff}')
-            pass
-        ecoAdjusted = ecoflowPower - 5
+
+        #log(f'targetDiff: {marstekPower} - {getTarget()} = {targetDiff}')
+
+        ecoAdjusted = ecoflowPower - 15
+
         if total - targetDiff < ecoAdjusted:
-            targetDiff = total - ecoAdjusted
-            #log(f'targetDiff restricted by ecoflowPower, setting targetDiff to {total} - {ecoflowPower} = {targetDiff}')
+            targetDiffAdjusted = total - ecoAdjusted
+            #log(f'targetDiffAdjusted restricted by ecoflowPower, setting targetDiffAdjusted to {total} - {ecoflowPower} = {targetDiffAdjusted}')
+        else:
+            targetDiffAdjusted = targetDiff
+
         if ecoAdjusted > 0:
             total = -ecoAdjusted
             #log(f'ecoflow too much')
+            log(ecoAdjusted)
             target = "--"
-        elif targetDiff > total:
-            #log(f'targetDiff > total: {targetDiff} > {total}')
-            total = min(200, targetDiff)
+        elif targetDiffAdjusted > total:
+            #log(f'targetDiffAdjusted > total: {targetDiffAdjusted} > {total}')
+            total = min(200, targetDiffAdjusted)
             target = "+"
-        elif ecoAdjusted > -800 and targetDiff < 0 and total > -25:
+        elif ecoAdjusted > -800 and targetDiff < 0 and ecoflowPower < 0:
             # slightly bleed down power if ecoflow still has more power to give
             total -= 25
             target = "-"
@@ -170,9 +177,6 @@ def getAnswer():
     total += transfer()
 
     undampedTotal = round(total)
-
-    if abs(total) > 5:
-        integralAdjust += sign(total)
 
     if total < -800:
         total = -800
@@ -186,31 +190,36 @@ def getAnswer():
         if total < 0:
             total *= 1
 
+    # global dampening
+    total *= 0.5
+
     # minimum the inverter will react to
     minStep = 11
 
+    # if undamped adjustment required is less than minStep, can't do any better, reset the integral
+    # adjustment
+    if abs(undampedTotal) < minStep * 0.75:
+        integralAdjust = 0
+
     if abs(total) < minStep:
-        if abs(integralAdjust) > 6:
+        # another dampening factor for these VERY small adjustments
+        # better to just keep it stable
+        integralAdjust += total * 0.75
+        if abs(integralAdjust) > minStep:
             total = minStep * sign(integralAdjust)
             integralAdjust = 0
         else:
             total = 0
     else:
+        # use integral adjust only for successive intervals with little inputs
         integralAdjust = 0
-        # global dampening
-        if abs(total * 0.5) < minStep:
-            # values that would result in less than minStep are damped pulsing on every 3rd query
-            if replyCounter % 3 == 0:
-                total = 0
-            else:
-                total = minStep * sign(total)
-        else:
-            total *= 0.5
 
     total = round(total)
     undampedTotal = round(undampedTotal)
+    targetDiff = round(targetDiff)
+    preTargetTotal = round(preTargetTotal)
 
-    log(f"Responding with total: {total:4} undampedTotal: {undampedTotal:4} (target: {target})")
+    log(f"Responding with total: {total:4} undampedTotal: {undampedTotal:4} target: {target} targetDiff: {targetDiff:4} preTargetTotal: {preTargetTotal:4} integralAdjust: {round(integralAdjust, 1)}")
 
     mod = dict()
     mod["id"] = 0
