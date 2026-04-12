@@ -52,18 +52,22 @@ def getTarget():
     if local < datetime.time(11, 0):
         return -0
     if local < datetime.time(19, 30):
-        return -350
+        return -100
     if local < datetime.time(22, 30):
-        return -350
+        return 0
     return -0
 
 
 integralAdjust = 0
+integralTimeout = 0
+responseDelay = 0
 replyCounter = 0
 
 def getAnswer():
     global replyCounter
     global integralAdjust
+    global integralTimeout
+    global responseDelay
     filePath = f"{promDir}/lastResults.json"
     with open(filePath, 'r') as file:
         lastResults = json.load(file)
@@ -186,7 +190,8 @@ def getAnswer():
         if total > 0:
             total *= 1
         if total < 0:
-            total *= 1
+            # extra dampening for high power power reduction
+            total *= 0.7
 
     # global dampening
     total *= 0.5
@@ -194,23 +199,23 @@ def getAnswer():
     # minimum the inverter will react to
     minStep = 11
 
-    # if undamped adjustment required is less than minStep, can't do any better, reset the integral
-    # adjustment
-    if abs(undampedTotal) < minStep * 0.75:
-        integralAdjust = 0
+    total = round(total)
 
     if abs(total) < minStep:
-        # another dampening factor for these VERY small adjustments
-        # better to just keep it stable
-        integralAdjust += total * 0.75
+        if now > integralTimeout:
+            if abs(undampedTotal) > 8:
+                integralAdjust += 0.8 * total
+            else:
+                integralAdjust *= 0.8
         if abs(integralAdjust) > minStep:
             total = minStep * sign(integralAdjust)
             integralAdjust = 0
+            integralTimeout = now + responseDelay
         else:
             total = 0
     else:
         # use integral adjust only for successive intervals with little inputs
-        integralAdjust = 0
+        integralTimeout = now + responseDelay
 
     total = round(total)
     undampedTotal = round(undampedTotal)
