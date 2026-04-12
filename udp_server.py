@@ -52,9 +52,9 @@ def getTarget():
     if local < datetime.time(11, 0):
         return -0
     if local < datetime.time(19, 30):
-        return -0
+        return -350
     if local < datetime.time(22, 30):
-        return -400
+        return -350
     return -0
 
 
@@ -124,10 +124,9 @@ def getAnswer():
         #reference = [ latest ]
         reference = lastTwo
     else:
-        reference = lastFive
+        # with as much damping and all the other stuff, use only more recent data now
+        reference = lastThree
 
-    # with as much damping and all the other stuff, use only more recent data now
-    reference = lastTwo
 
     for key in powerKeys:
         vals = [ stuff.get(key) for stuff in reference ]
@@ -161,8 +160,7 @@ def getAnswer():
 
         if ecoAdjusted > 0:
             total = -ecoAdjusted
-            #log(f'ecoflow too much')
-            log(ecoAdjusted)
+            #log(f"ecoflow too much {ecoAdjusted}")
             target = "--"
         elif targetDiffAdjusted > total:
             #log(f'targetDiffAdjusted > total: {targetDiffAdjusted} > {total}')
