@@ -63,11 +63,20 @@ integralTimeout = 0
 responseDelay = 0
 replyCounter = 0
 
+emptyTimeout = time.time()
+lastOutput = 0
+lastTotal = 0
+lastMarstekPower = 0
+
 def getAnswer():
     global replyCounter
     global integralAdjust
     global integralTimeout
     global responseDelay
+    global lastOutput
+    global emptyTimeout
+    global lastTotal
+    global lastMarstekPower
     filePath = f"{promDir}/lastResults.json"
     with open(filePath, 'r') as file:
         lastResults = json.load(file)
@@ -213,14 +222,42 @@ def getAnswer():
             integralTimeout = now + responseDelay
         else:
             total = 0
-    else:
+
+    if abs(total) >= minStep:
         # use integral adjust only for successive intervals with little inputs
         integralTimeout = now + responseDelay
+        integralAdjust *= 0.8
+
+
+    if marstekPower is not None:
+        # no power requested, assume it gives output when requested
+        if total < 2 * minStep:
+            lastOutput = now
+
+        # actual power output
+        if marstekPower < -10:
+            lastOutput = now
+
+        if lastMarstekPower is not None:
+            # last request was not to reduce power but power has reduced significantly
+            if lastTotal > -20 and marstekPower > lastMarstekPower + 100:
+                # timeout if it is detected that the battery is empty and it's giving stupid
+                # short power bursts before turning off again
+                emptyTimeout = now + 2 * 60
+
+    if now < emptyTimeout:
+        # don't ask for any power for a while when empty battery is detected
+        target = "0"
+        total = -800
+
 
     total = round(total)
     undampedTotal = round(undampedTotal)
     targetDiff = round(targetDiff)
     preTargetTotal = round(preTargetTotal)
+
+    lastTotal = total
+    lastMarstekPower = marstekPower
 
     log(f"Responding with total: {total:4} undampedTotal: {undampedTotal:4} target: {target} targetDiff: {targetDiff:4} preTargetTotal: {preTargetTotal:4} integralAdjust: {round(integralAdjust, 1)}")
 
