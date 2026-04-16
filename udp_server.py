@@ -70,6 +70,7 @@ emptyTimeout = time.time()
 lastOutput = 0
 lastTotals = []
 lastMarstekPower = None
+ecoflowHistory = []
 
 def getAnswer():
     global replyCounter
@@ -80,6 +81,7 @@ def getAnswer():
     global emptyTimeout
     global lastTotals
     global lastMarstekPower
+    global ecoflowHistory
     filePath = f"{promDir}/lastResults.json"
     with open(filePath, 'r') as file:
         lastResults = json.load(file)
@@ -100,6 +102,10 @@ def getAnswer():
     plugMarstek = plugs.get("marstek_jupiter_c_1")
     if plugMarstek:
         marstekPower = plugMarstek.get("apower")
+
+    ecoflowHistory = ecoflowHistory[:20]
+    ecoflowHistory.append(ecoflowPower or 0)
+    ecoflowActive = any((x < -1 or x > 15) for x in ecoflowHistory)
 
     now = time.time()
     lastFiveSeconds = { k: v for k, v in lastResults.items() if float(k) > now - 5 }
@@ -157,8 +163,8 @@ def getAnswer():
     else:
         total = minPower["total_act_power"]
 
-    if total < 0:
-        total = avgPower["total_act_power"]
+    if total < -100 and maxPower["total_act_power"] < 200:
+        total = maxPower["total_act_power"]
 
     # minimum the inverter will react to
     minStep = 11
@@ -181,21 +187,25 @@ def getAnswer():
             targetDiffAdjusted = targetDiff
 
         if ecoAdjusted > 15:
-            if total > 20:
-                # just wait
+            # ecoflow charging battery from AC
+            if total > 100:
+                # just wait, ecoflow should reduce charging / start delivering power again due to
+                # the total being > 20
                 total = 0
                 target = "--0"
             else:
-                total = -ecoAdjusted
+                # reduce inverter power to inhibit transferring battery power from marstek to
+                # ecoflow
+                total = -ecoAdjusted * 0.7
                 #log(f"ecoflow too much {ecoAdjusted}")
                 target = "--"
         elif targetDiffAdjusted > total:
             #log(f'targetDiffAdjusted > total: {targetDiffAdjusted} > {total}')
             total = min(200, targetDiffAdjusted)
             target = "+"
-        elif ecoAdjusted > -800 and targetDiff < -minStep and ecoflowPower < 0:
+        elif ecoflowPower > -800 and targetDiff < -minStep and ecoflowActive and total < 150:
             # slightly bleed down power if ecoflow still has more power to give
-            total -= 25
+            total = min(-40, targetDiff * 0.7)
             target = "-"
 
     # push power into the grid so the other battery picks it up
@@ -215,17 +225,17 @@ def getAnswer():
         if total < 0:
             total *= 0.5
     elif abs(total) < 100:
-        # extra dampening for low powers
-        total *= 0.5
-    elif abs(total) < 200:
-        # extra dampening for low powers
-        total *= 0.75
+        # dampening for low power
+        if total > 0:
+            total *= 0.5
+        if total < 0:
+            total *= 0.5
     else:
+        # dampening for high power
         if total > 0:
             total *= 1
         if total < 0:
-            # extra dampening for high power power reduction
-            total *= 1
+            total *= 0.35
 
     # global dampening
     total *= 0.5
