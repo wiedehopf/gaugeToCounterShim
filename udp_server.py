@@ -44,26 +44,26 @@ def getTarget():
     tz = zoneinfo.ZoneInfo("Europe/Busingen")
     local = datetime.datetime.now(tz).time()
     #log(local)
-    if local < datetime.time(4, 0):
+    if local < datetime.time(6, 0):
         return -0
     if local < datetime.time(8, 30):
-        return -100
+        return -200
     if local < datetime.time(9, 0):
         return -100
     if local < datetime.time(11, 0):
         return -0
     if local < datetime.time(16, 30):
         return -0
-    if local < datetime.time(19, 30):
+    if local < datetime.time(18, 30):
         return -0
+    if local < datetime.time(19, 30):
+        return -100
     if local < datetime.time(23, 30):
         return -250
     return -0
 
 
 integralAdjust = 0
-integralTimeout = 0
-responseDelay = 0
 replyCounter = 0
 
 emptyTimeout = time.time()
@@ -75,8 +75,6 @@ ecoflowHistory = []
 def getAnswer():
     global replyCounter
     global integralAdjust
-    global integralTimeout
-    global responseDelay
     global lastOutput
     global emptyTimeout
     global lastTotals
@@ -148,7 +146,6 @@ def getAnswer():
     else:
         # with as much damping and all the other stuff, use only more recent data now
         reference = lastThree
-        reference = lastTwo
 
 
     for key in powerKeys:
@@ -158,21 +155,13 @@ def getAnswer():
         maxPower[key] = round(max(vals))
         avgPower[key] = round(sum(vals) / len(vals))
 
-    if False and latest["total_act_power"] < 800:
-        total = latest["total_act_power"]
-    else:
-        total = minPower["total_act_power"]
-
-    if total < -100 and maxPower["total_act_power"] < 200:
-        total = maxPower["total_act_power"]
-
-    # minimum the inverter will react to
-    minStep = 11
+    total = minPower["total_act_power"]
 
     target = " "
 
     targetDiff = 0
     preTargetTotal = total
+
     if not transfer() and marstekPower is not None and ecoflowPower is not None:
         targetDiff = marstekPower - getTarget()
 
@@ -188,7 +177,7 @@ def getAnswer():
 
         if ecoAdjusted > 15:
             # ecoflow charging battery from AC
-            if total > 100:
+            if False and total > 100:
                 # just wait, ecoflow should reduce charging / start delivering power again due to
                 # the total being > 20
                 total = 0
@@ -196,16 +185,16 @@ def getAnswer():
             else:
                 # reduce inverter power to inhibit transferring battery power from marstek to
                 # ecoflow
-                total = -ecoAdjusted * 0.7
+                total = min(min(-ecoAdjusted, total), targetDiff)
                 #log(f"ecoflow too much {ecoAdjusted}")
                 target = "--"
-        elif targetDiffAdjusted > total:
+        elif targetDiffAdjusted > 0 and targetDiffAdjusted > total:
             #log(f'targetDiffAdjusted > total: {targetDiffAdjusted} > {total}')
-            total = min(200, targetDiffAdjusted)
+            total = targetDiffAdjusted
             target = "+"
-        elif ecoflowPower > -800 and targetDiff < -minStep and ecoflowActive and total < 150:
+        elif ecoflowPower > -800 and targetDiff < -15 and ecoflowActive:
             # slightly bleed down power if ecoflow still has more power to give
-            total = min(-40, targetDiff * 0.7)
+            total = min(-20, targetDiff * 0.5)
             target = "-"
 
     # push power into the grid so the other battery picks it up
@@ -214,50 +203,68 @@ def getAnswer():
     # slight offset bias
     total += 3
 
-    undampedTotal = round(total)
-
-    if total < -800:
-        total = -800
+    undampedTotal = total
 
     if transfer():
         if total > 0:
             total *= 1.2
         if total < 0:
-            total *= 0.5
-    elif abs(total) < 100:
-        # dampening for low power
+            total *= 0.8
+    elif abs(total) < 101:
+        # dampening for low power diff
         if total > 0:
             total *= 0.5
-        if total < 0:
+        else:
             total *= 0.5
+    elif abs(total) < 201:
+        if total > 0:
+            total *= (0.5 + ((abs(total) - 100) / 100) * 0.5)
+        else:
+            total *= (0.5 + ((abs(total) - 100) / 100) * 0.2)
     else:
-        # dampening for high power
+        # dampening for high power diff
         if total > 0:
-            total *= 1
-        if total < 0:
-            total *= 0.35
+            total *= 1.0
+        else:
+            total *= 0.7
 
     # global dampening
     total *= 0.5
 
-    total = round(total)
+    if total < 0:
+        # power reduction needs dampening to adjust for weird Marstek behaviour
+        total *= 0.5
 
-    if abs(total) < minStep:
-        if now > integralTimeout:
-            if abs(undampedTotal) > 8:
-                integralAdjust += 0.6 * total
-            else:
-                integralAdjust *= 0.8
-        if abs(integralAdjust) > minStep:
-            total = minStep * sign(integralAdjust)
+    # limit negative power reduction
+    if total < -180:
+        total = -180
+
+    # minimum the inverter will react to
+    minStep = 11
+    minStepDown = -4
+
+    if (total > 0 and total <= minStep) or (total < 0 and total >= minStepDown):
+        # extra dampen for stepping
+        total *= 0.5
+
+        if abs(undampedTotal) > 8:
+            integralAdjust += total
+        else:
+            integralAdjust *= 0.8
+
+        if integralAdjust >= minStep:
+            total = minStep
             integralAdjust = 0
-            integralTimeout = now + responseDelay
+        elif integralAdjust <= minStepDown:
+            # when trying to reduce power,
+            # smaller step needs to be sent to get the smallest step
+            total = minStepDown
+            integralAdjust = 0
         else:
             total = 0
 
-    if abs(total) >= minStep:
+    else:
         # use integral adjust only for successive intervals with little inputs
-        integralTimeout = now + responseDelay
         integralAdjust *= 0.8
 
 
@@ -283,22 +290,20 @@ def getAnswer():
         target = "0"
         total = -800
 
+    # possibly the marstek firmware doesn't like when it gets only zeroes
+    total += sign(total) * 0.1 * random.random()
 
-    total = round(total)
-    undampedTotal = round(undampedTotal)
+    total = round(total, 1)
+    undampedTotal = round(undampedTotal, 1)
     targetDiff = round(targetDiff)
     preTargetTotal = round(preTargetTotal)
 
-    lastTotals = lastTotals[:4]
-    lastTotals.append(total)
+    lastTotals = [total] + lastTotals[:5]
 
     lastMarstekPower = marstekPower
 
-    log(f"power: {-round(marstekPower):4} req.: {total:4} undampedTotal: {undampedTotal:4} target: {target:4} targetDiff: {targetDiff:4} preTargetTotal: {preTargetTotal:4} integralAdjust: {round(integralAdjust, 1)}")
 
-    # possibly the marstek firmware doesn't like when it gets only zeroes
-    total += sign(total) * 0.1 * random.random()
-    total = round(total, 2)
+    log(f"power: {-round(marstekPower):4} req.: {total:7} undampedTotal: {undampedTotal:7} target: {target:4} targetDiff: {targetDiff:4} preTargetTotal: {preTargetTotal:4} integralAdjust: {round(integralAdjust, 1)}")
 
     mod = dict()
     mod["id"] = 0
