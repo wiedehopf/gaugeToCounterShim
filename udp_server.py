@@ -47,9 +47,9 @@ def getTarget():
     if local < datetime.time(6, 0):
         return -0
     if local < datetime.time(8, 30):
-        return -200
+        return -0
     if local < datetime.time(9, 0):
-        return -100
+        return -0
     if local < datetime.time(11, 0):
         return -0
     if local < datetime.time(16, 30):
@@ -175,7 +175,11 @@ def getAnswer():
         else:
             targetDiffAdjusted = targetDiff
 
-        if ecoAdjusted > 15:
+        if abs(targetDiff) < 5 and ecoflowPower > -700 and marstekPower > -1 and total < 500:
+            # let the ecoflow do all the work
+            total = 0
+            target = "e"
+        elif ecoAdjusted > 15:
             # ecoflow charging battery from AC
             if False and total > 100:
                 # just wait, ecoflow should reduce charging / start delivering power again due to
