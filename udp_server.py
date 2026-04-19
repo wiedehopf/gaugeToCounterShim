@@ -47,11 +47,11 @@ def getTarget():
     if local < datetime.time(6, 0):
         return -0
     if local < datetime.time(8, 30):
-        return -0
+        return -100
     if local < datetime.time(9, 0):
-        return -0
+        return -200
     if local < datetime.time(11, 0):
-        return -0
+        return -200
     if local < datetime.time(16, 30):
         return -0
     if local < datetime.time(18, 30):
@@ -59,7 +59,7 @@ def getTarget():
     if local < datetime.time(19, 30):
         return -100
     if local < datetime.time(23, 30):
-        return -250
+        return -200
     return -0
 
 
@@ -175,7 +175,7 @@ def getAnswer():
         else:
             targetDiffAdjusted = targetDiff
 
-        if abs(targetDiff) < 5 and ecoflowPower > -700 and marstekPower > -1 and total < 500:
+        if abs(targetDiff) < 5 and ecoflowPower > -600 and marstekPower > -1 and total < 300:
             # let the ecoflow do all the work
             total = 0
             target = "e"
@@ -196,7 +196,7 @@ def getAnswer():
             #log(f'targetDiffAdjusted > total: {targetDiffAdjusted} > {total}')
             total = targetDiffAdjusted
             target = "+"
-        elif ecoflowPower > -800 and targetDiff < -15 and ecoflowActive:
+        elif ecoflowPower > -800 and targetDiff < -11 and ecoflowActive:
             # slightly bleed down power if ecoflow still has more power to give
             total = min(-20, targetDiff * 0.5)
             target = "-"
@@ -307,7 +307,7 @@ def getAnswer():
     lastMarstekPower = marstekPower
 
 
-    log(f"power: {-round(marstekPower):4} req.: {total:7} undampedTotal: {undampedTotal:7} target: {target:4} targetDiff: {targetDiff:4} preTargetTotal: {preTargetTotal:4} integralAdjust: {round(integralAdjust, 1)}")
+    log(f"power: {-round(marstekPower or -7777):4} req.: {total:7} epower: {-round(ecoflowPower or -7777):4} undampedTotal: {undampedTotal:7} target: {target:4} targetDiff: {targetDiff:4} preTargetTotal: {preTargetTotal:4} integralAdjust: {round(integralAdjust, 1)}")
 
     mod = dict()
     mod["id"] = 0
