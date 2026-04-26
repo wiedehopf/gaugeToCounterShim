@@ -45,21 +45,21 @@ def getTarget():
     local = datetime.datetime.now(tz).time()
     #log(local)
     if local < datetime.time(6, 0):
-        return -0
+        return -100
     if local < datetime.time(8, 30):
         return -100
-    if local < datetime.time(9, 0):
-        return -200
+    if local < datetime.time(9, 30):
+        return -100
     if local < datetime.time(11, 0):
         return -200
     if local < datetime.time(16, 30):
         return -0
     if local < datetime.time(18, 30):
-        return -0
+        return -100
     if local < datetime.time(19, 30):
         return -100
     if local < datetime.time(23, 30):
-        return -200
+        return -100
     return -0
 
 
@@ -101,7 +101,7 @@ def getAnswer():
     if plugMarstek:
         marstekPower = plugMarstek.get("apower")
 
-    ecoflowHistory = ecoflowHistory[:20]
+    ecoflowHistory = ecoflowHistory[:10]
     ecoflowHistory.append(ecoflowPower or 0)
     ecoflowActive = any((x < -1 or x > 15) for x in ecoflowHistory)
 
@@ -306,8 +306,10 @@ def getAnswer():
 
     lastMarstekPower = marstekPower
 
+    marstekFormatted = "None" if marstekPower is None else -round(marstekPower)
+    ecoflowFormatted = "None" if ecoflowPower is None else -round(ecoflowPower)
 
-    log(f"power: {-round(marstekPower or -7777):4} req.: {total:7} epower: {-round(ecoflowPower or -7777):4} undampedTotal: {undampedTotal:7} target: {target:4} targetDiff: {targetDiff:4} preTargetTotal: {preTargetTotal:4} integralAdjust: {round(integralAdjust, 1)}")
+    log(f"power: {marstekFormatted:4} req.: {total:7} epower: {ecoflowFormatted:4} undampedTotal: {undampedTotal:7} target: {target:4} targetDiff: {targetDiff:4} preTargetTotal: {preTargetTotal:4} integralAdjust: {round(integralAdjust, 1)}")
 
     mod = dict()
     mod["id"] = 0

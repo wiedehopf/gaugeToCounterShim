@@ -43,11 +43,16 @@ def generateProm(plug=None, data=None, interval=None):
         log('generateProm called without plug, data or interval argument')
         return
 
+    tObj = data.get('temperature')
+    if tObj and tObj.get('tC') is not None:
+        data["plug_temp"] = tObj.get('tC')
+
     counterKeys = [
             "a", # power added
             ]
 
     gauges = [
+            "plug_temp",
             "voltage",
             "apower", # do power as gauge even if there is already the watt seconds counter
             ]
