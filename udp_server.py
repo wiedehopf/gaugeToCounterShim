@@ -96,10 +96,14 @@ def getAnswer():
     plugEcoflow = plugs.get("ecoflow_stream_ultra_x_1")
     if plugEcoflow:
         ecoflowPower = plugEcoflow.get("apower")
+    else:
+        ecoflowPower = None
 
     plugMarstek = plugs.get("marstek_jupiter_c_1")
     if plugMarstek:
         marstekPower = plugMarstek.get("apower")
+    else:
+        marstekPower = None
 
     ecoflowHistory = ecoflowHistory[:10]
     ecoflowHistory.append(ecoflowPower or 0)
@@ -222,13 +226,13 @@ def getAnswer():
             total *= 0.5
     elif abs(total) < 201:
         if total > 0:
-            total *= (0.5 + ((abs(total) - 100) / 100) * 0.5)
+            total *= (0.5 + ((abs(total) - 100) / 100) * 1.0)
         else:
             total *= (0.5 + ((abs(total) - 100) / 100) * 0.2)
     else:
         # dampening for high power diff
         if total > 0:
-            total *= 1.0
+            total *= 1.5
         else:
             total *= 0.7
 
@@ -240,8 +244,8 @@ def getAnswer():
         total *= 0.5
 
     # limit negative power reduction
-    if total < -180:
-        total = -180
+    if total < -200:
+        total = -200
 
     # minimum the inverter will react to
     minStep = 11
