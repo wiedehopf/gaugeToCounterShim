@@ -45,21 +45,21 @@ def getTarget():
     local = datetime.datetime.now(tz).time()
     #log(local)
     if local < datetime.time(6, 0):
-        return -100
+        return -0
     if local < datetime.time(8, 30):
-        return -100
+        return -0
     if local < datetime.time(9, 30):
-        return -100
+        return -0
     if local < datetime.time(11, 0):
-        return -200
+        return -0
     if local < datetime.time(16, 30):
         return -0
     if local < datetime.time(18, 30):
-        return -100
+        return -0
     if local < datetime.time(19, 30):
         return -100
     if local < datetime.time(23, 30):
-        return -100
+        return -350
     return -0
 
 
