@@ -46,12 +46,14 @@ def getTarget():
     #log(local)
     if local < datetime.time(6, 0):
         return -0
-    if local < datetime.time(8, 30):
-        return -0
+    if local < datetime.time(8, 0):
+        return -400
     if local < datetime.time(9, 30):
-        return -0
-    if local < datetime.time(11, 0):
-        return -0
+        return -200
+    if local < datetime.time(10, 30):
+        return -400
+    if local < datetime.time(11, 30):
+        return -400
     if local < datetime.time(16, 30):
         return -0
     if local < datetime.time(18, 30):
@@ -59,7 +61,7 @@ def getTarget():
     if local < datetime.time(19, 30):
         return -100
     if local < datetime.time(23, 30):
-        return -350
+        return -400
     return -0
 
 
@@ -107,7 +109,7 @@ def getAnswer():
 
     ecoflowHistory = ecoflowHistory[:10]
     ecoflowHistory.append(ecoflowPower or 0)
-    ecoflowActive = any((x < -1 or x > 15) for x in ecoflowHistory)
+    ecoflowActive = any((x < -15 or x > 15) for x in ecoflowHistory)
 
     now = time.time()
     lastFiveSeconds = { k: v for k, v in lastResults.items() if float(k) > now - 5 }
@@ -179,7 +181,7 @@ def getAnswer():
         else:
             targetDiffAdjusted = targetDiff
 
-        if abs(targetDiff) < 5 and ecoflowPower > -600 and marstekPower > -1 and total < 300:
+        if abs(targetDiff) < 5 and ecoflowPower > -600 and marstekPower > -1 and total < 300 and ecoflowActive:
             # let the ecoflow do all the work
             total = 0
             target = "e"
