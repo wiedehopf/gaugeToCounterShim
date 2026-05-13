@@ -46,14 +46,12 @@ def getTarget():
     #log(local)
     if local < datetime.time(6, 0):
         return -0
-    if local < datetime.time(8, 0):
-        return -400
-    if local < datetime.time(9, 30):
-        return -200
+    if local < datetime.time(8, 30):
+        return -0
     if local < datetime.time(10, 30):
-        return -400
+        return -200
     if local < datetime.time(11, 30):
-        return -400
+        return -0
     if local < datetime.time(16, 30):
         return -0
     if local < datetime.time(18, 30):
@@ -211,7 +209,7 @@ def getAnswer():
     total += transfer()
 
     # slight offset bias
-    total += 3
+    total += 8
 
     undampedTotal = total
 
