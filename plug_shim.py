@@ -28,8 +28,8 @@ def sleepTruncatedInterval(interval=1.0, offset=0.0):
 
 
 plugs = [
-        { "name": "ecoflow_stream_ultra_x_1", "url": "http://192.168.7.23", },
-        { "name": "marstek_jupiter_c_1",     "url": "http://192.168.7.24", },
+        { "name": "ecoflow_stream_ultra_x_1", "url": "http://192.168.7.31", },
+        { "name": "marstek_jupiter_c_1",     "url": "http://192.168.7.32", },
         ]
 
 promDir = "/run/shelly_shim"
@@ -52,7 +52,6 @@ def generateProm(plug=None, data=None, interval=None):
             ]
 
     gauges = [
-            "plug_temp",
             "voltage",
             "apower", # do power as gauge even if there is already the watt seconds counter
             ]
@@ -125,8 +124,10 @@ def handlePlug(plug=None, interval=1.0):
 
         for attempt in range(attempts):
             try:
-                with urllib.request.urlopen(f"{plug["url"]}/rpc/Switch.GetStatus?id=0", timeout=timeout) as response:
+                with urllib.request.urlopen(f"{plug["url"]}/rpc/PM1.GetStatus?id=0", timeout=timeout) as response:
                     data = json.load(response)
+
+                #log(data)
 
                 plug["data"] = data
                 plug["prom"] = generateProm(plug=plug, data=data, interval=interval)
@@ -155,6 +156,9 @@ def handlePlug(plug=None, interval=1.0):
 
             if attempt == attempts - 1:
                 log(f"WARNING: no data for interval {startOfInterval} for plug {plug["name"]}")
+                plug["data"] = None
+                plug["prom"] = None
+
 
 
 for plug in plugs:

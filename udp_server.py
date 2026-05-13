@@ -209,7 +209,12 @@ def getAnswer():
     total += transfer()
 
     # slight offset bias
-    total += 8
+    total += 5
+
+    # if we don't have information how much power the other inverter is providing, provide less
+    # power as to not transfer energy from battery to battery
+    if ecoflowPower is None:
+        total -= 35
 
     undampedTotal = total
 
